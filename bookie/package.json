@@ -1,0 +1,20 @@
+{
+  "name": "ai-ebook-creator",
+  "version": "1.0.0",
+  "description": "AI Ebook Creator using Gemini API with secure serverless functions",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "netlify build"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "netlify-cli": "^15.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "private": true
+}

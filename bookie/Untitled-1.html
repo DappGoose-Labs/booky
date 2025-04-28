@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Ebook Creator (Gemini API)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'primary-dark': '#4A49B0',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Ebook styling */
+        .ebook-content h1, .ebook-content h2, .ebook-content h3,
+        .ebook-content h4, .ebook-content h5, .ebook-content h6 {
+            font-weight: bold;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            line-height: 1.2;
+        }
+        .ebook-content h1 {
+            font-size: 2rem;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.3em;
+        }
+        .dark .ebook-content h1 {
+            border-bottom: 1px solid #333;
+        }
+        .ebook-content h2 {
+            font-size: 1.5rem;
+        }
+        .ebook-content h3 {
+            font-size: 1.25rem;
+        }
+        .ebook-content p {
+            margin-bottom: 1em;
+            line-height: 1.6;
+        }
+        .ebook-content ul, .ebook-content ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+        .ebook-content ul {
+            list-style-type: disc;
+        }
+        .ebook-content ol {
+            list-style-type: decimal;
+        }
+        .ebook-content blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #666;
+        }
+        .dark .ebook-content blockquote {
+            border-left: 4px solid #555;
+            color: #aaa;
+        }
+        .ebook-content img {
+            max-width: 100%;
+            margin: 1em 0;
+        }
+        .ebook-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1em;
+        }
+        .ebook-content table, .ebook-content th, .ebook-content td {
+            border: 1px solid #ddd;
+        }
+        .dark .ebook-content table, .dark .ebook-content th, .dark .ebook-content td {
+            border: 1px solid #444;
+        }
+        .ebook-content th, .ebook-content td {
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .ebook-content code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .dark .ebook-content code {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .ebook-content pre {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 1em;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+        }
+        .dark .ebook-content pre {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .ebook-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        /* Custom styling for outline display */
+        .outline-display-container {
+            max-height: 70vh;
+            overflow-y-auto;
+        }
+        .outline-display-container h1, .outline-display-container h2, .outline-display-container h3,
+        .outline-display-container h4, .outline-display-container h5, .outline-display-container h6 {
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.3em;
+            line-height: 1.3;
+        }
+         .outline-display-container h1 { font-size: 1.5rem; }
+         .outline-display-container h2 { font-size: 1.25rem; }
+         .outline-display-container h3 { font-size: 1.1rem; }
+         .outline-display-container ul, .outline-display-container ol {
+            margin-bottom: 0.5em;
+            padding-left: 1.5em;
+         }
+
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary dark:text-primary mb-2">AI Ebook Creator</h1>
+            <p class="text-gray-600 dark:text-gray-400">Transform your ideas into professionally formatted ebooks using Gemini</p>
+        </header>
+
+        <div id="app-container" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div id="input-form" class="block">
+                <h2 class="text-xl font-semibold mb-4">Tell us about your ebook</h2>
+                <form id="ebook-form" class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium mb-1">Working Title</label>
+                        <input type="text" id="title" name="title" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base" placeholder="Enter a title for your ebook" required>
+                    </div>
+
+                    <div>
+                        <label for="concept" class="block text-sm font-medium mb-1">Main Concept/Idea</label>
+                        <textarea id="concept" name="concept" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base" placeholder="Describe the main idea or concept behind your ebook" required></textarea>
+                    </div>
+
+                    <div>
+                        <label for="audience" class="block text-sm font-medium mb-1">Target Audience</label>
+                        <input type="text" id="audience" name="audience" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base" placeholder="Who is this ebook for? (e.g., beginners, professionals, students)" required>
+                    </div>
+
+                    <div>
+                        <label for="scope" class="block text-sm font-medium mb-1">Scope & Length</label>
+                        <select id="scope" name="scope" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base">
+                            <option value="brief">Brief Guide (approx. 2,000-4,000 words)</option>
+                            <option value="standard" selected>Standard Ebook (approx. 7,000-15,000 words)</option>
+                            <option value="comprehensive">Comprehensive Book (approx. 20,000-30,000 words)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="style" class="block text-sm font-medium mb-1">Writing Style</label>
+                        <select id="style" name="style" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base">
+                            <option value="informative">Informative & Educational</option>
+                            <option value="conversational">Conversational & Friendly</option>
+                            <option value="formal">Formal & Professional</option>
+                            <option value="storytelling">Narrative & Storytelling</option>
+                            <option value="technical">Technical & Detailed</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="additional" class="block text-sm font-medium mb-1">Additional Notes (Optional)</label>
+                        <textarea id="additional" name="additional" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-base" placeholder="Any other details you'd like to include"></textarea>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-md transition duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50">
+                            Create My Ebook
+                        </button>
+                    </div>
+                </form>
+                 <div class="mt-4 text-red-500 text-sm text-center">
+                     <strong>Security Warning:</strong> Embedding API keys directly in client-side code like this is insecure. Use a backend server for production.
+                 </div>
+            </div>
+
+            <div id="processing" class="hidden">
+                <div class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <h2 class="text-xl font-semibold mb-2">Creating Your Ebook</h2>
+                    <p id="status-message" class="text-gray-600 dark:text-gray-400">Analyzing your inputs...</p>
+                </div>
+
+                <div class="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-850">
+                    <h3 class="font-medium mb-2 text-sm text-gray-600 dark:text-gray-400">Progress</h3>
+                    <div class="space-y-2">
+                        <div id="progress-container" class="relative pt-1">
+                            <div class="flex mb-2 items-center justify-between">
+                                <div>
+                                    <span id="progress-text" class="text-xs font-semibold inline-block text-primary">
+                                        Step 1 of 5
+                                    </span>
+                                </div>
+                                <div class="text-right">
+                                    <span id="progress-percentage" class="text-xs font-semibold inline-block text-primary">
+                                        0%
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200 dark:bg-gray-700">
+                                <div id="progress-bar" style="width: 0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="progress-details" class="mt-4 text-sm">
+                        <div id="analyze-status" class="flex items-start mb-1">
+                            <div id="analyze-icon">○</div>
+                            <div class="ml-2">Analyzing your inputs</div>
+                        </div>
+                        <div id="outline-status" class="flex items-start mb-1 text-gray-400 dark:text-gray-500">
+                            <div id="outline-icon">○</div>
+                            <div class="ml-2">Generating outline</div>
+                        </div>
+                        <div id="review-status" class="flex items-start mb-1 text-gray-400 dark:text-gray-500">
+                            <div id="review-icon">○</div>
+                            <div class="ml-2">Reviewing and confirming outline</div>
+                        </div>
+                        <div id="content-status" class="flex items-start mb-1 text-gray-400 dark:text-gray-500">
+                            <div id="content-icon">○</div>
+                            <div class="ml-2">Generating content</div>
+                        </div>
+                        <div id="final-status" class="flex items-start mb-1 text-gray-400 dark:text-gray-500">
+                            <div id="final-icon">○</div>
+                            <div class="ml-2">Formatting final ebook</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <button id="cancel-button-processing" class="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-300">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+             <div id="outline-review" class="hidden">
+                 <h2 class="text-xl font-semibold mb-4">Review and Confirm Outline</h2>
+                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-850 shadow-md">
+                      <div id="outline-display" class="p-6 md:p-8 outline-display-container">
+                           </div>
+                 </div>
+                 <div class="mt-6 flex justify-end space-x-4">
+                      <button id="regenerate-outline-button" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-300">
+                           Regenerate Outline
+                      </button>
+                      <button id="confirm-outline-button" class="bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-md transition duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50">
+                           Confirm Outline & Generate Content
+                      </button>
+                 </div>
+                 <div class="mt-8 text-center">
+                      <button id="cancel-button-review" class="text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
+                 </div>
+            </div>
+
+
+            <div id="output" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="ebook-title" class="text-2xl font-bold"></h2>
+                    <div class="flex space-x-2">
+                        <button id="copy-button" class="py-1.5 px-3 text-sm bg-primary hover:bg-primary-dark text-white rounded-md transition duration-300">
+                            Copy Text
+                        </button>
+                        <button id="new-ebook-button" class="py-1.5 px-3 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition duration-300">
+                            New Ebook
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ebook-display" class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-850 shadow-md">
+                    <div class="p-6 md:p-8 max-h-[70vh] overflow-y-auto ebook-content" id="ebook-content">
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p>Created with Google Gemini API. The generated content is AI-assisted.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // IMPORTANT: Replace with your actual Gemini API Key.
+            // WARNING: Embedding API keys directly in client-side code is HIGHLY INSECURE.
+            // Use a backend server to handle API calls for production applications.
+            const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // <-- REPLACE WITH YOUR API KEY
+            const MODEL_ID = 'gemini-1.5-flash-latest'; // Or 'gemini-1.5-pro-latest'
+
+            // DOM elements
+            const form = document.getElementById('ebook-form');
+            const inputForm = document.getElementById('input-form');
+            const processing = document.getElementById('processing');
+            const outlineReview = document.getElementById('outline-review'); // New outline review section
+            const output = document.getElementById('output');
+            const statusMessage = document.getElementById('status-message');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const outlineDisplay = document.getElementById('outline-display'); // Element to display outline
+            const ebookContent = document.getElementById('ebook-content');
+            const ebookTitle = document.getElementById('ebook-title');
+            const copyButton = document.getElementById('copy-button');
+            const newEbookButton = document.getElementById('new-ebook-button');
+            const cancelButtonProcessing = document.getElementById('cancel-button-processing'); // Cancel button in processing view
+             const cancelButtonReview = document.getElementById('cancel-button-review'); // Cancel button in review view
+            const confirmOutlineButton = document.getElementById('confirm-outline-button'); // Confirm outline button
+            const regenerateOutlineButton = document.getElementById('regenerate-outline-button'); // Regenerate outline button
+
+            // Progress indicators
+             const analyzeStatus = document.getElementById('analyze-status');
+             const analyzeIcon = document.getElementById('analyze-icon');
+            const outlineStatus = document.getElementById('outline-status');
+            const outlineIcon = document.getElementById('outline-icon');
+            const reviewStatus = document.getElementById('review-status'); // Outline review status
+            const reviewIcon = document.getElementById('review-icon'); // Outline review icon
+            const contentStatus = document.getElementById('content-status');
+            const contentIcon = document.getElementById('content-icon');
+            const finalStatus = document.getElementById('final-status');
+            const finalIcon = document.getElementById('final-icon');
+
+            // Global state
+            let ebookData = {
+                title: '',
+                concept: '',
+                audience: '',
+                scope: '',
+                style: '',
+                additional: '',
+                outline: '',
+                content: '',
+                formattedContent: ''
+            };
+            let controller = new AbortController(); // For cancellation
+
+            // Generic function to call Gemini API
+            async function callGeminiAPI(prompt, options = {}) {
+                const { stream = false, signal } = options;
+
+                const requestBody = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7, // Default temperature
+                        topP: 0.95,
+                        topK: 60
+                    }
+                };
+
+                const url = `https://generativelanguage.googleapis.com/v1/models/${MODEL_ID}:generateContent?key=${GEMINI_API_KEY}`;
+                const streamUrl = `https://generativelanguage.googleapis.com/v1/models/${MODEL_ID}:streamGenerateContent?key=${GEMINI_API_KEY}`;
+
+                try {
+                    const response = await fetch(stream ? streamUrl : url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody),
+                        signal: signal // Pass the AbortSignal
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error.message}`);
+                    }
+
+                    if (stream) {
+                        // Handle streaming response
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+                        let partialContent = '';
+
+                        // Clear previous content if streaming content to ebook display
+                        if (options.updateElement === ebookContent) {
+                             ebookContent.innerHTML = '';
+                             ebookContent.classList.add('animate-pulse-slow'); // Add pulsing while streaming
+                        }
+
+
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+
+                             // Process chunks (specific to streamGenerateContent format)
+                            const parts = buffer.split('\n');
+                            buffer = parts.pop(); // Keep the last incomplete part in the buffer
+
+                            for (const part of parts) {
+                                if (part.trim() === '' || part.startsWith('data: ')) continue; // Skip empty lines and 'data: ' prefix
+
+                                try {
+                                    const json = JSON.parse(part);
+                                    if (json.candidates && json.candidates[0].content && json.candidates[0].content.parts) {
+                                        const chunk = json.candidates[0].content.parts[0].text;
+                                        partialContent += chunk;
+                                         // Update the specified element incrementally
+                                        if (options.updateElement) {
+                                            // Use textContent for outline display, innerHTML for ebook content
+                                            if (options.updateElement === outlineDisplay) {
+                                                 options.updateElement.textContent = partialContent; // Raw text for review step
+                                            } else {
+                                                options.updateElement.innerHTML = marked.parse(partialContent); // Markdown for final ebook
+                                                options.updateElement.scrollTop = options.updateElement.scrollHeight; // Auto-scroll
+                                            }
+                                        } else {
+                                            // Default: log partial content
+                                            console.log("Partial content:", chunk);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Error parsing streamed chunk:", e, "Chunk:", part);
+                                }
+                            }
+                        }
+
+                         if (options.updateElement === ebookContent) {
+                            ebookContent.classList.remove('animate-pulse-slow'); // Remove pulsing when stream ends
+                         }
+
+                        return partialContent; // Return accumulated content for streaming
+                    } else {
+                        // Handle non-streaming response
+                        const data = await response.json();
+                        if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                            return data.candidates[0].content.parts[0].text;
+                        } else {
+                             throw new Error("Invalid response format from API.");
+                        }
+                    }
+
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                       console.log('Fetch aborted');
+                       throw new Error("Operation cancelled.");
+                    } else {
+                       console.error("Error calling Gemini API:", error);
+                       throw error; // Re-throw to be caught by the form handler
+                    }
+                }
+            }
+
+            // Form submission
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                // Reset controller for new request
+                controller = new AbortController();
+                const signal = controller.signal;
+
+                // Get form data and store it in state
+                ebookData.title = document.getElementById('title').value;
+                ebookData.concept = document.getElementById('concept').value;
+                ebookData.audience = document.getElementById('audience').value;
+                ebookData.scope = document.getElementById('scope').value;
+                ebookData.style = document.getElementById('style').value;
+                ebookData.additional = document.getElementById('additional').value;
+
+                // Show processing UI
+                inputForm.classList.add('hidden');
+                processing.classList.remove('hidden');
+                outlineReview.classList.add('hidden');
+                output.classList.add('hidden');
+                resetProgressIndicators(); // Reset progress display
+                 statusMessage.classList.remove("text-red-500"); // Remove error color
+
+                try {
+                    // --- Step 1: Analyze Inputs (Implicitly done by gathering data) ---
+                    updateProgress(10, "Step 1 of 5", "Analyzing your inputs...");
+                    completeStage(0);
+
+                    // --- Step 2: Generate Outline ---
+                    updateProgress(30, "Step 2 of 5", "Generating outline...");
+                    completeStage(1);
+                    const outlinePrompt = generateOutlinePrompt(ebookData.title, ebookData.concept, ebookData.audience, ebookData.scope, ebookData.style, ebookData.additional);
+                    const outline = await callGeminiAPI(outlinePrompt, { signal });
+                    ebookData.outline = outline;
+
+                    // --- Step 3: Show Outline for Review ---
+                    completeStage(2); // Outline generation complete, ready for review
+                    updateProgress(50, "Step 3 of 5", "Reviewing outline...");
+                    showOutlineReview();
+
+
+                } catch (err) {
+                    if (err.message !== "Operation cancelled.") {
+                       handleError("An error occurred during outline generation: " + err.message);
+                    }
+                }
+            });
+
+             // Show outline review section
+             function showOutlineReview() {
+                 processing.classList.add('hidden');
+                 outlineReview.classList.remove('hidden');
+                 outlineDisplay.textContent = ebookData.outline; // Display raw markdown outline
+                 // Update status message in case user looks at processing section later
+                 statusMessage.textContent = "Outline generated, please review.";
+                 const spinner = processing.querySelector('.animate-spin'); // Remove spinner
+                  if (spinner) {
+                       spinner.classList.remove('animate-spin');
+                       spinner.textContent = '✅'; // Indicate outline complete
+                  }
+             }
+
+
+             // Handle outline confirmation
+             confirmOutlineButton.addEventListener('click', async function() {
+                 // Hide outline review, show processing again
+                 outlineReview.classList.add('hidden');
+                 processing.classList.remove('hidden');
+                 resetProgressIndicators(); // Reset visuals for the next phase
+                  statusMessage.classList.remove("text-red-500"); // Remove error color
+                 const spinner = processing.querySelector('.animate-spin'); // Ensure spinner is back
+                  if (spinner) {
+                       spinner.classList.add('animate-spin');
+                       spinner.textContent = '';
+                  }
+
+
+                 try {
+                      // --- Step 3 (Cont.): Outline Confirmed ---
+                      completeStage(2); // Mark review stage as complete
+                      updateProgress(50, "Step 3 of 5", "Outline confirmed. Starting content generation...");
+
+
+                     // --- Step 4: Generate Content (Streaming) ---
+                     updateProgress(70, "Step 4 of 5", "Generating content...");
+                     completeStage(3); // Content generation started
+                     const contentPrompt = generateContentPrompt(ebookData.title, ebookData.outline);
+                     // Pass the element to update and signal for streaming
+                     const content = await callGeminiAPI(contentPrompt, { stream: true, signal: controller.signal, updateElement: ebookContent });
+                     ebookData.content = content;
+                     // updateProgress will be handled by the streaming updates
+
+
+                     // --- Step 5: Format Ebook (Streaming) ---
+                     updateProgress(90, "Step 5 of 5", "Formatting ebook...");
+                     completeStage(4); // Formatting started
+                     const formatPrompt = formatEbookPrompt(ebookData.title, ebookData.content);
+                     // Pass the element to update and signal for streaming
+                     const formattedContent = await callGeminiAPI(formatPrompt, { stream: true, signal: controller.signal, updateElement: ebookContent });
+                     ebookData.formattedContent = formattedContent;
+                     // updateProgress will be handled by the streaming updates
+
+                     // --- Finalize ---
+                     updateProgress(100, "Step 5 of 5", "Completed!");
+                     completeStage(5); // All stages complete
+                     showResult();
+
+                 } catch (err) {
+                    if (err.message !== "Operation cancelled.") {
+                       handleError("An error occurred during content generation or formatting: " + err.message);
+                    }
+                 }
+             });
+
+             // Handle regenerate outline button
+             regenerateOutlineButton.addEventListener('click', function() {
+                 // Go back to the input form to allow changes or simply resubmit
+                 newEbookButton.click(); // Simulate clicking New Ebook to reset
+                 // The user can then click "Create My Ebook" again to regenerate
+             });
+
+
+            // Generate prompt for outline generation
+            function generateOutlinePrompt(title, concept, audience, scope, style, additional) {
+                let length = '';
+                if (scope === 'brief') {
+                    length = 'around 2,000-4,000 words';
+                } else if (scope === 'standard') {
+                    length = 'around 7,000-15,000 words';
+                } else if (scope === 'comprehensive') {
+                    length = 'around 20,000-30,000 words';
+                }
+
+                return `Create a detailed outline for an ebook with the following details:
+
+Title: "${title}"
+Main Concept: ${concept}
+Target Audience: ${audience}
+Scope: ${scope === 'brief' ? 'Brief guide' : scope === 'standard' ? 'Standard ebook' : 'Comprehensive book'} (${length})
+Writing Style: ${style === 'informative' ? 'Informative & Educational' :
+                style === 'conversational' ? 'Conversational & Friendly' :
+                style === 'formal' ? 'Formal & Professional' :
+                style === 'storytelling' ? 'Narrative & Storytelling' : 'Technical & Detailed'}
+Additional Notes: ${additional || 'None'}
+
+Please create a detailed outline for this ebook. Include:
+1. An introduction section
+2. 5-10 main chapters (depending on scope)
+3. Subsections for each chapter
+4. A conclusion section
+
+Format your response as a well-structured markdown outline that I can copy and paste. Do not include any introductory or concluding sentences outside of the markdown outline itself.`;
+            }
+
+            // Generate prompt for content generation
+            function generateContentPrompt(title, outline) {
+                return `Using the following outline, please generate a complete, well-written ebook. Create engaging, informative, and well-structured content for each section in the outline.
+
+Title: "${title}"
+
+Outline:
+${outline}
+
+Please follow these guidelines:
+1. Write in a clear, engaging style that's easy to read.
+2. Include practical examples, tips, and insights where relevant.
+3. Make sure each chapter flows logically from the previous one.
+4. Maintain consistent formatting and style throughout.
+5. Create a proper introduction and conclusion based on the outline.
+6. Use markdown formatting for headings, emphasis, lists, etc.
+7. Ensure the content is substantial and fulfills the scope implied by the outline.
+
+Generate the full ebook content based on this outline.`;
+            }
+
+             // Generate prompt for ebook formatting
+            function formatEbookPrompt(title, content) {
+                return `Please take the following ebook content and format it beautifully with clean, consistent markdown formatting. Add a proper title page, table of contents (if appropriate based on length), and ensure all sections are properly formatted with the right heading levels. Make it look professional and ready for distribution.
+
+Title: ${title}
+
+Content:
+${content}
+
+Format this as a complete, professional ebook with:
+1. A title page (using Markdown headings)
+2. A table of contents (using Markdown list of headings)
+3. Consistent heading styles (#, ##, ###)
+4. Proper spacing between sections
+5. Any other standard markdown formatting that would make this look like a professional ebook.
+
+Return the formatted content in markdown format only. Do not include any conversational text before or after the formatted ebook content.`;
+            }
+
+
+            // Show the final result
+            function showResult() {
+                // Hide processing UI and show output UI
+                processing.classList.add('hidden');
+                outlineReview.classList.add('hidden');
+                output.classList.remove('hidden');
+
+                // Set the ebook title
+                ebookTitle.textContent = ebookData.title;
+
+                // Render the formatted content
+                ebookContent.innerHTML = marked.parse(ebookData.formattedContent || ebookData.content || "No content generated.");
+            }
+
+            // Update progress indicators
+            function updateProgress(percent, step, message) {
+                progressBar.style.width = `${percent}%`;
+                progressText.textContent = step;
+                progressPercentage.textContent = `${percent}%`;
+                statusMessage.textContent = message;
+            }
+
+            // Complete a stage and update UI
+            function completeStage(stage) {
+                // Reset all icons to initial state (except analyzing, which is done first)
+                 const allIcons = [outlineIcon, reviewIcon, contentIcon, finalIcon];
+                 const allStatuses = [outlineStatus, reviewStatus, contentStatus, finalStatus];
+
+                 allIcons.forEach(icon => {
+                    icon.textContent = "○";
+                    icon.classList.remove("animate-pulse-slow", "text-green-500", "text-red-500"); // Also remove error color
+                 });
+                 allStatuses.forEach(status => {
+                     status.classList.add("text-gray-400", "dark:text-gray-500");
+                 });
+
+                 // Stage 0: Analyzing inputs (initial state)
+                 analyzeIcon.textContent = "✓";
+                 analyzeIcon.classList.add("text-green-500");
+                 analyzeStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+
+
+                // Update based on current stage
+                 // Stage 1: Generating Outline
+                 if (stage === 1) {
+                      outlineIcon.textContent = "⟳";
+                      outlineIcon.classList.add("animate-pulse-slow");
+                      outlineStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 } else if (stage > 1) { // Outline generation complete
+                      outlineIcon.textContent = "✓";
+                      outlineIcon.classList.add("text-green-500");
+                      outlineStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 }
+
+                 // Stage 2: Reviewing and confirming outline
+                 if (stage === 2) {
+                      reviewIcon.textContent = "👀"; // Or some other review icon
+                      reviewIcon.classList.add("animate-pulse-slow"); // Indicate waiting for user
+                      reviewStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 } else if (stage > 2) { // Review complete
+                      reviewIcon.textContent = "✓";
+                      reviewIcon.classList.add("text-green-500");
+                      reviewStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 }
+
+                 // Stage 3: Generating Content
+                 if (stage === 3) {
+                      contentIcon.textContent = "⟳";
+                      contentIcon.classList.add("animate-pulse-slow");
+                      contentStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 } else if (stage > 3) { // Content generation complete
+                      contentIcon.textContent = "✓";
+                      contentIcon.classList.add("text-green-500");
+                      contentStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                 }
+
+                 // Stage 4: Formatting Ebook
+                  if (stage === 4) {
+                      finalIcon.textContent = "⟳";
+                      finalIcon.classList.add("animate-pulse-slow");
+                      finalStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                  } else if (stage > 4) { // Formatting complete (Stage 5)
+                      finalIcon.textContent = "✓";
+                      finalIcon.classList.add("text-green-500");
+                      finalStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+                  }
+            }
+
+            // Reset progress indicators to initial state
+            function resetProgressIndicators() {
+                 // Reset all icons to initial state
+                 const allIcons = [analyzeIcon, outlineIcon, reviewIcon, contentIcon, finalIcon];
+                 const allStatuses = [analyzeStatus, outlineStatus, reviewStatus, contentStatus, finalStatus];
+
+                 allIcons.forEach(icon => {
+                    icon.textContent = "○";
+                    icon.classList.remove("animate-pulse-slow", "text-green-500", "text-red-500");
+                 });
+                 allStatuses.forEach(status => {
+                     status.classList.add("text-gray-400", "dark:text-gray-500");
+                 });
+                 // Set initial 'Analyzing' status
+                 analyzeIcon.textContent = "⟳"; // Pulse initially for analyzing
+                 analyzeIcon.classList.add("animate-pulse-slow");
+                 analyzeStatus.classList.remove("text-gray-400", "dark:text-gray-500");
+
+                 updateProgress(0, "Step 1 of 5", "Analyzing your inputs...");
+            }
+
+
+            // Handle error display
+            function handleError(message) {
+                statusMessage.textContent = message;
+                statusMessage.classList.add("text-red-500");
+                console.error(message);
+                 // Indicate which step failed
+                 if (outlineStatus.classList.contains("animate-pulse-slow")) outlineIcon.textContent = '❌';
+                 if (reviewStatus.classList.contains("animate-pulse-slow")) reviewIcon.textContent = '❌';
+                 if (contentStatus.classList.contains("animate-pulse-slow")) contentIcon.textContent = '❌';
+                 if (finalStatus.classList.contains("animate-pulse-slow")) finalIcon.textContent = '❌';
+
+
+                 // Stop spinner and show a general error icon
+                 const spinner = processing.querySelector('.animate-spin');
+                 if (spinner) {
+                      spinner.classList.remove('animate-spin');
+                       // Only show a big error icon if no specific step icon is showing pulse/error
+                      if (!outlineIcon.textContent.includes('❌') && !reviewIcon.textContent.includes('❌') && !contentIcon.textContent.includes('❌') && !finalIcon.textContent.includes('❌')) {
+                           spinner.textContent = '❌'; // Show a big error icon
+                      } else {
+                            spinner.textContent = ''; // Hide the big spinner/icon
+                      }
+                 }
+
+                 cancelButtonProcessing.textContent = "Start Over"; // Change cancel to start over on error
+                 cancelButtonReview.textContent = "Start Over"; // Change cancel to start over on error
+            }
+
+            // Copy button event listener
+            copyButton.addEventListener('click', function() {
+                // Use the formatted content if available, otherwise the raw content
+                const textToCopy = ebookData.formattedContent || ebookData.content || '';
+                if (!textToCopy) {
+                    alert("No content to copy.");
+                    return;
+                }
+
+                // Create a temporary textarea to copy the content
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                // Show feedback
+                const originalText = copyButton.textContent;
+                copyButton.textContent = "Copied!";
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                }, 2000);
+            });
+
+            // New ebook button event listener
+            newEbookButton.addEventListener('click', function() {
+                 resetApp(); // Use the reset function
+            });
+
+             // Cancel button event listeners
+             cancelButtonProcessing.addEventListener('click', handleCancel);
+             cancelButtonReview.addEventListener('click', handleCancel);
+
+             function handleCancel() {
+                  controller.abort(); // Abort any ongoing fetch request
+                  handleError("Operation cancelled by user."); // Show cancellation message
+
+                  // Reset buttons and UI state
+                  cancelButtonProcessing.textContent = "Start Over";
+                  cancelButtonReview.textContent = "Start Over";
+
+                  // Hide non-input sections
+                  processing.classList.add('hidden');
+                  outlineReview.classList.add('hidden');
+                  output.classList.add('hidden');
+                  inputForm.classList.remove('hidden'); // Show input form
+
+                  // Reset progress indicators
+                  resetProgressIndicators();
+
+                  // Clear displayed content/outline
+                  ebookContent.innerHTML = '';
+                  outlineDisplay.textContent = '';
+
+                  // Clear state
+                  ebookData = {
+                     title: '',
+                     concept: '',
+                     audience: '',
+                     scope: '',
+                     style: '',
+                     additional: '',
+                     outline: '',
+                     content: '',
+                     formattedContent: ''
+                 };
+
+                 // Ensure spinner is reset if error icon was showing
+                 const spinner = processing.querySelector('.animate-spin');
+                  if (spinner) {
+                       spinner.classList.add('animate-spin');
+                       spinner.textContent = '';
+                  }
+             }
+
+             // Function to fully reset the app state and UI
+             function resetApp() {
+                 // Abort any potential ongoing process before resetting
+                 controller.abort();
+                 controller = new AbortController(); // Create a new controller for future use
+
+                 form.reset(); // Reset the input form
+                 inputForm.classList.remove('hidden'); // Show the input form
+
+                 // Hide all other sections
+                 processing.classList.add('hidden');
+                 outlineReview.classList.add('hidden');
+                 output.classList.add('hidden');
+
+                 resetProgressIndicators(); // Reset progress UI
+
+                 // Clear displayed content/outline
+                 ebookContent.innerHTML = '';
+                 outlineDisplay.textContent = '';
+
+                 // Clear state
+                 ebookData = {
+                     title: '',
+                     concept: '',
+                     audience: '',
+                     scope: '',
+                     style: '',
+                     additional: '',
+                     outline: '',
+                     content: '',
+                     formattedContent: ''
+                 };
+
+                 // Reset error message and spinner
+                 statusMessage.classList.remove("text-red-500");
+                 const spinner = processing.querySelector('.animate-spin');
+                  if (spinner) {
+                       spinner.classList.add('animate-spin');
+                       spinner.textContent = '';
+                  }
+                 cancelButtonProcessing.textContent = "Cancel"; // Restore cancel button text
+                 cancelButtonReview.textContent = "Cancel"; // Restore cancel button text
+             }
+
+
+             // Initialize progress indicators on load
+             resetProgressIndicators(); // Call reset on page load
+
+        });
+    </script>
+</body>
+</html>
