@@ -48,4 +48,4 @@ To run this project locally:
 
 ## License
 
-© 2025 DappGoose Labs. All rights reserved.
+© 2025 DappGoose Labs. All rights reserved
